@@ -3,6 +3,7 @@ import sys
 import time
 
 INTERACTIVE = False
+PROBABILITY_CACHE = {}
 
 def load_word_file(filename: str) -> List[str]:
   """Load the words from the file filename into a list."""
@@ -24,7 +25,7 @@ def character_probabilities(words: List[str], chars: List[str]) -> Dict[str, flo
   return {char: sum(
     [1 if char in word else 0 for word in words])/len(words) for char in chars}
 
-def character_position_probabilities(words: List[str], chars: List[str]) -> Dict[str, List[float]]:
+def character_position_probabilities(words: List[str], chars: List[str]) -> Dict[int, Dict[str, float]]:
   """Calculate the probability of each character appearing in each position."""
   return {i: {char: sum(
     [1 if char == word[i] else 0 for word in words])/len(words)
@@ -55,14 +56,26 @@ def choose_next_guess(
     words: List[str],
     position_chars: List[str],
     must_have_chars: str,
-    guessed_words: List[str]) -> str:
+    guessed_words: List[str]
+    ) -> str:
   """Choose the next word to guess."""
+  global PROBABILITY_CACHE
   available_chars = list(set(''.join(position_chars)))
   # filter the list to only include words that are valid
   filtered_words = [word for word in words if valid_word(
     word, guessed_words, position_chars, must_have_chars)]
-  char_probs = character_probabilities(filtered_words, available_chars)
-  char_position_probs = character_position_probabilities(filtered_words, available_chars)
+  guess_key = '_'.join(position_chars)
+  if PROBABILITY_CACHE.get(guess_key):
+    char_probs = PROBABILITY_CACHE[guess_key]['char_probs']
+    char_position_probs = PROBABILITY_CACHE[guess_key]['char_position_probs']
+  else:
+    char_probs = character_probabilities(filtered_words, available_chars)
+    char_position_probs = character_position_probabilities(filtered_words, available_chars)
+    # cache the results to save time when testing
+    PROBABILITY_CACHE[guess_key] = {
+      'char_probs': char_probs,
+      'char_position_probs': char_position_probs
+    }
 
   # if the list is long, don't use words that have duplicate letters since it won't give
   # us as much useful information
